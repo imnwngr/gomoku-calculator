@@ -240,15 +240,39 @@ const actions = {
     engine.sendCommand('INFO SWAPABLE ' + (rootState.position.swaped ? 0 : 1))
   },
   sendBoard({ rootState }, immediateThink) {
-    let position = rootState.position.position
+    const position = rootState.position.position
+    const neutralPoints = rootState.position.neutralPoints
 
     let command = immediateThink ? 'BOARD' : 'YXBOARD'
-    let side = position.length % 2 == 0 ? 1 : 2
+
+    // sned 3 neutral points as wall = 3
+    for (let pos of neutralPoints) {
+      command +=
+        ' ' +
+        pos[0] +
+        ',' +
+        pos[1] +
+        ',3'
+    }
+
+    // send black/white moves
+    let side =
+      position.length % 2 == 0 ? 1 : 2
+
     for (let pos of position) {
-      command += ' ' + pos[0] + ',' + pos[1] + ',' + side
+      command +=
+        ' ' +
+        pos[0] +
+        ',' +
+        pos[1] +
+        ',' +
+        side
+
       side = 3 - side
     }
+
     command += ' DONE'
+
     engine.sendCommand(command)
   },
   think({ commit, dispatch, state, rootState, rootGetters }, args) {
