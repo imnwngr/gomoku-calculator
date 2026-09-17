@@ -240,22 +240,8 @@ const actions = {
     }
   },
   makeMove({ commit, dispatch, getters, rootGetters, state }, pos) {
-    if (!getters.isEmpty(pos)) return false
-
-    // state.position.length == 0 is X1
-    if (getters.playerToMove == 'BLACK' && state.position.length == 0) {
-      if (!getters.isAdjacentToNeutral(pos)) {
-        return false
-      }
-    }
-
-    // state.position.length == 2 is X2 becoz ==1 is O1
-    if (getters.playerToMove == 'BLACK' && state.position.length == 2) {
-      if (!getters.isOutsideBlackSecondRadius(pos)) {
-        return false
-      }
-    }
-
+    if (!getters.isLegalMove(pos)) return false
+    
     let checkOverline =
       rootGetters['settings/gameRule'] == STANDARD ||
       (rootGetters['settings/gameRule'] == RENJU &&
