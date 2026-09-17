@@ -118,7 +118,7 @@ const getters = {
     return state.position.length % 2 == 0 ? 'BLACK' : 'WHITE'
   },
   moveLeftCount: (state) => {
-    return state.size * state.size - state.position.length
+    return (state.size * state.size - state.position.length - state.neutralPoints.length)
   },
   marchPosition: (state) => {
     return (position) => {
@@ -253,7 +253,7 @@ const actions = {
     commit('undo')
     dispatch('ai/checkForbid', {}, { root: true })
   },
-  forward({ commit, dispatch, state, rootGetters }) {
+  forward({ commit, dispatch, state, rootGetters, getters }) {
     if (state.lastPosition.length <= state.position.length) return
     let checkOverline =
       rootGetters['settings/gameRule'] == STANDARD ||
@@ -271,28 +271,117 @@ const actions = {
     while (state.lastPosition.length > state.position.length) dispatch('forward')
   },
   rotate({ commit, dispatch, state }) {
-    let position = state.position
-    commit('new', state.size)
+    const size = state.size
+
+    // copy b4 new() remove state
+    const position = state.position.map((p) => [...p])
+    const neutralPoints = state.neutralPoints.map((p) => [...p])
+
+    commit('new', size)
+
+    // rotate Neutral first
+    for (let p of neutralPoints) {
+      commit('setNeutral', [
+        size - 1 - p[1],
+        p[0],
+      ])
+    }
+
+    // then rotate black/white
     for (let p of position) {
-      dispatch('makeMove', [state.size - 1 - p[1], p[0]])
+      dispatch('makeMove', [
+        size - 1 - p[1],
+        p[0],
+      ])
     }
   },
   flip({ commit, dispatch, state }, dir) {
-    let position = state.position
-    commit('new', state.size)
+    const size = state.size
+
+    const position = state.position.map((p) => [...p])
+    const neutralPoints = state.neutralPoints.map((p) => [...p])
+
+    function transform(p) {
+      let x = p[0]
+      let y = p[1]
+
+      if (dir[0] == 0 && dir[1] == 0) {
+        return [y, x]
+      }
+
+      if (dir[0] == 1 && dir[1] == 1) {
+        return [
+          size - 1 - y,
+          size - 1 - x,
+        ]
+      }
+
+      if (dir[0] == 1) {
+        return [
+          size - 1 - x,
+          y,
+        ]
+      }
+
+      if (dir[1] == 1) {
+        return [
+          x,
+          size - 1 - y,
+        ]
+      }
+
+      return [x, y]
+    }
+
+    commit('new', size)
+
+    // Neutral
+    for (let p of neutralPoints) {
+      commit('setNeutral', transform(p))
+    }
+
+    // Black / White
     for (let p of position) {
-      if (dir[0] == 0 && dir[1] == 0) p = [p[1], p[0]]
-      else if (dir[0] == 1 && dir[1] == 1) p = [state.size - 1 - p[1], state.size - 1 - p[0]]
-      else if (dir[0] == 1) p[0] = state.size - 1 - p[0]
-      else if (dir[1] == 1) p[1] = state.size - 1 - p[1]
-      dispatch('makeMove', p)
+      dispatch('makeMove', transform(p))
     }
   },
   moveTowards({ commit, dispatch, state }, dir) {
-    let position = state.position
-    commit('new', state.size)
-    for (let p of position) {
-      dispatch('makeMove', [p[0] + dir[0], p[1] + dir[1]])
+    const size = state.size
+
+    const position = state.position.map((p) => [...p])
+    const neutralPoints = state.neutralPoints.map((p) => [...p])
+
+    const movedNeutral = neutralPoints.map((p) => [
+      p[0] + dir[0],
+      p[1] + dir[1],
+    ])
+
+    const movedPosition = position.map((p) => [
+      p[0] + dir[0],
+      p[1] + dir[1],
+    ])
+
+    //when there any neutral points or black/white go outside then no move
+    const allPositions = movedNeutral.concat(movedPosition)
+
+    const invalid = allPositions.some(
+      (p) =>
+        p[0] < 0 ||
+        p[1] < 0 ||
+        p[0] >= size ||
+        p[1] >= size
+    )
+
+    if (invalid) return
+
+    commit('new', size)
+
+    for (let p of movedNeutral) {
+      commit('setNeutral', p)
+    }
+
+    for (let p of movedPosition) {
+      dispatch('makeMove', p)
     }
   },
 }
