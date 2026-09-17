@@ -405,10 +405,10 @@ export default {
       'showAnalysis',
     ]),
     ...mapState('ai', ['outputs', 'thinking', 'lastThinkTime', 'ready', 'loadingProgress']),
-    ...mapState('position', ['position', 'lastPosition', 'winline', 'swaped']),
+    ...mapState('position', ['position', 'lastPosition', 'neutralPoints', 'winline', 'swaped']),
     ...mapGetters('settings', ['turnTime', 'matchTime', 'gameRule']),
     ...mapGetters('ai', ['bestlineStr', 'bestline']),
-    ...mapGetters('position', ['isEmpty', 'playerToMove', 'moveLeftCount', 'posStr']),
+    ...mapGetters('position', ['isEmpty', 'isInBoard', 'playerToMove', 'moveLeftCount', 'posStr']),
     buttonBarWidth() {
       const Width = 620
       if (this.screenWidth >= 1024)
@@ -456,6 +456,9 @@ export default {
     shotOptions() {
       return [this.$t('game.shotJpg'), this.$t('game.shotGif')]
     },
+    neutralSetupMode() {
+      return this.position.length === 0 && this.neutralPoints.length < 3
+    },
     isAITurn() {
       return (
         (this.playerToMove == 'BLACK' && this.aiThinkBlack) ||
@@ -470,6 +473,7 @@ export default {
     ...mapMutations('position', {
       newBoard: 'new',
       setSwaped: 'setSwaped',
+      setNeutral: 'setNeutral',
     }),
     ...mapMutations('settings', ['setValue']),
     ...mapMutations('ai', ['clearUsedTime']),
@@ -626,6 +630,16 @@ export default {
       let pos = [e.x, e.y]
       if (this.thinking) return
 
+      // choose 3 neutral points b4 start game
+      if (this.neutralSetupMode) {
+        if (e.button != 0) return
+        if (!this.isInBoard(pos)) return
+        if (!this.isEmpty(pos)) return
+        this.setNeutral(pos)
+        return
+      }
+
+      // normal game starting
       if (e.button == 0) {
         // 检查是否点击了棋盘上的棋子（任意棋子都可以触发AI推算）
         if (!this.isAITurn && !this.isEmpty(pos) && this.winline.length == 0) {
