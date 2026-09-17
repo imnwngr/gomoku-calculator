@@ -109,6 +109,26 @@ const getters = {
       return Math.max(dx, dy) > 3
     }
   },
+  isLegalMove: (state, getters) => {
+    return (pos) => {
+      if (!getters.isInBoard(pos)) return false
+      if (!getters.isEmpty(pos)) return false
+      if (state.neutralPoints.length !== 3) return false
+      if (
+        getters.playerToMove === 'BLACK' &&
+        state.position.length === 0
+      ) {
+        return getters.isAdjacentToNeutral(pos)
+      }
+      if (
+        getters.playerToMove === 'BLACK' &&
+        state.position.length === 2
+      ) {
+        return getters.isOutsideBlackSecondRadius(pos)
+      }
+      return true
+    }
+  },
   isInBoard: (state) => {
     return (pos) => {
       return toIndex(pos, state.size) != -1
