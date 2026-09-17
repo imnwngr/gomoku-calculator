@@ -408,7 +408,7 @@ export default {
     ...mapState('position', ['position', 'lastPosition', 'neutralPoints', 'winline', 'swaped']),
     ...mapGetters('settings', ['turnTime', 'matchTime', 'gameRule']),
     ...mapGetters('ai', ['bestlineStr', 'bestline']),
-    ...mapGetters('position', ['isEmpty', 'isInBoard', 'playerToMove', 'moveLeftCount', 'posStr']),
+    ...mapGetters('position', ['isEmpty', 'isInBoard', 'isLegalMove', 'playerToMove', 'moveLeftCount', 'posStr']),
     buttonBarWidth() {
       const Width = 620
       if (this.screenWidth >= 1024)
@@ -708,7 +708,15 @@ export default {
             },
           })
         } else {
-          this.makeMove(pos)
+          const moveAccepted = this.makeMove(pos)
+
+          if (!moveAccepted) {
+            console.warn(
+              'AI returned an illegal move:',
+              pos
+            )
+            return
+          }
 
           let e = +this.outputs.pv[0].eval
           if (!isNaN(e)) {
@@ -733,10 +741,24 @@ export default {
           return
         }
 
-        this.makeMove(pos)
+        if (!this.makeMove(pos)) {
+          console.warn(
+            'AI returned an illegal balance move:',
+            pos
+          )
+          return
+        }
+
         if (mode == 2) {
           const pos2 = this.outputs.pv[0].bestline[1]
-          this.makeMove(pos2)
+
+          if (!this.makeMove(pos2)) {
+            console.warn(
+              'AI returned an illegal second balance move:',
+              pos2
+            )
+            return
+          }
         }
       })
     },
