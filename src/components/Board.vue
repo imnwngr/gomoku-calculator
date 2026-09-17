@@ -136,6 +136,25 @@ function drawBoard(ctx, style, s, cs) {
   ctx.restore()
 }
 
+function drawNeutral(ctx, style, cs, neutralPoints) {
+  ctx.save()
+
+  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
+  ctx.scale(cs, cs)
+
+  for (let pos of neutralPoints) {
+    // outside
+    ctx.fillStyle = '#d32f2f'
+    fillCircle(ctx, pos[0], pos[1], 0.34)
+
+    // inside
+    ctx.fillStyle = '#ff5252'
+    fillCircle(ctx, pos[0], pos[1], 0.24)
+  }
+
+  ctx.restore()
+}
+
 function drawPiece(ctx, style, cs, position, end) {
   let radius = style.pieceScale / 2
   ctx.save()
@@ -337,6 +356,7 @@ export default {
     ...mapState('position', {
       boardSize: 'size',
       position: 'position',
+      neutralPoints: 'neutralPoints',
       winline: 'winline',
     }),
     ...mapState('settings', [
@@ -427,6 +447,7 @@ export default {
           this.showLastStep
         )
       } else {
+        drawNeutral(ctx, this.boardStyle, cellSize, this.neutralPoints)
         drawPiece(ctx, this.boardStyle, cellSize, this.position, this.end)
         if (this.showWinline && this.winline.length > 0 && this.end >= this.position.length)
           drawWinline(ctx, this.boardStyle, cellSize, this.winline)
@@ -615,6 +636,12 @@ export default {
       this.debouncedRedrawAllLayers()
     },
     position: {
+      handler() {
+        this.drawPieceLayer()
+      },
+      deep: true,
+    },
+    neutralPoints: {
       handler() {
         this.drawPieceLayer()
       },

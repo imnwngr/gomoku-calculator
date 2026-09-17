@@ -2,7 +2,8 @@ import { STANDARD, RENJU } from './settings'
 
 const EMPTY = 0,
   BLACK = 1,
-  WHITE = 2
+  WHITE = 2,
+  NEUTRAL = 3
 
 function toIndex(p, size) {
   if (p[0] < 0 || p[1] < 0 || p[0] >= size || p[1] >= size) return -1
@@ -36,9 +37,15 @@ function checkLine(board, pos, delta, size, exactFive = false) {
 const state = {
   size: 15,
   board: null,
+
+  // black/white moves 
   position: [],
   /* 棋子序列数组,每个元素为一个表示坐标的二维向量[x, y] */
   lastPosition: [],
+
+  // 3 neutral obstacle positions
+  neutralPoints: [],
+
   winline: [],
   swaped: false,
 }
@@ -61,6 +68,8 @@ const getters = {
           return 'WHITE'
         case EMPTY:
           return 'EMPTY'
+        case NEUTRAL:
+          return 'NEUTRAL'
         default:
           return 'ERROR'
       }
@@ -69,6 +78,35 @@ const getters = {
   isEmpty: (state) => {
     return (pos) => {
       return state.board[toIndex(pos, state.size)] == EMPTY
+    }
+  },
+  isNeutral: (state) => {
+    return (pos) => {
+      return state.neutralPoints.some(
+        (p) => p[0] == pos[0] && p[1] == pos[1]
+      )
+    }
+  },
+  isAdjacentToNeutral: (state) => {
+    return (pos) => {
+      return state.neutralPoints.some((neutral) => {
+        const dx = Math.abs(pos[0] - neutral[0])
+        const dy = Math.abs(pos[1] - neutral[1])
+
+        return Math.max(dx, dy) === 1
+      })
+    }
+  },
+  isOutsideBlackSecondRadius: (state) => {
+    return (pos) => {
+      if (state.position.length < 1) return true
+
+      const firstBlack = state.position[0]
+
+      const dx = Math.abs(pos[0] - firstBlack[0])
+      const dy = Math.abs(pos[1] - firstBlack[1])
+
+      return Math.max(dx, dy) > 3
     }
   },
   isInBoard: (state) => {
@@ -94,6 +132,7 @@ const getters = {
       return i
     }
   },
+
 }
 
 const mutations = {
@@ -102,6 +141,7 @@ const mutations = {
     state.board = new Uint8Array(state.size * state.size).fill(EMPTY)
     state.lastPosition = []
     state.position = []
+    state.neutralPoints = []
     state.winline = []
     state.swaped = false
   },
@@ -142,6 +182,26 @@ const mutations = {
   setSwaped(state) {
     state.swaped = true
   },
+  setNeutral(state, pos) {
+    if (state.neutralPoints.length >= 3) return
+
+    const exists = state.neutralPoints.some(
+      (p) => p[0] == pos[0] && p[1] == pos[1]
+    )
+
+    if (exists) return
+
+    state.neutralPoints.push([...pos])
+
+    state.board[pos[1] * state.size + pos[0]] = NEUTRAL
+  },
+  removeNeutral(state, pos) {
+    state.neutralPoints = state.neutralPoints.filter(
+      (p) => p[0] != pos[0] || p[1] != pos[1]
+    )
+
+    state.board[pos[1] * state.size + pos[0]] = EMPTY
+  },
 }
 
 const actions = {
@@ -159,14 +219,33 @@ const actions = {
       if (state.winline.length > 0) break
     }
   },
-  makeMove({ commit, dispatch, getters, rootGetters }, pos) {
+  makeMove({ commit, dispatch, getters, rootGetters, state }, pos) {
     if (!getters.isEmpty(pos)) return false
+
+    // state.position.length == 0 is X1
+    if (getters.playerToMove == 'BLACK' && state.position.length == 0) {
+      if (!getters.isAdjacentToNeutral(pos)) {
+        return false
+      }
+    }
+
+    // state.position.length == 2 is X2 becoz ==1 is O1
+    if (getters.playerToMove == 'BLACK' && state.position.length == 2) {
+      if (!getters.isOutsideBlackSecondRadius(pos)) {
+        return false
+      }
+    }
+
     let checkOverline =
       rootGetters['settings/gameRule'] == STANDARD ||
-      (rootGetters['settings/gameRule'] == RENJU && getters.playerToMove == 'BLACK')
+      (rootGetters['settings/gameRule'] == RENJU &&
+        getters.playerToMove == 'BLACK')
+
     commit('move', pos)
     commit('checkWin', checkOverline)
+
     dispatch('ai/checkForbid', {}, { root: true })
+
     return true
   },
   backward({ commit, dispatch }) {
