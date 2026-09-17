@@ -143,13 +143,13 @@ function drawNeutral(ctx, style, cs, neutralPoints) {
   ctx.scale(cs, cs)
 
   for (let pos of neutralPoints) {
-    // outside
-    ctx.fillStyle = '#d32f2f'
-    fillCircle(ctx, pos[0], pos[1], 0.34)
+    // Neutral marker
+    ctx.fillStyle = '#e53935'
+    fillCircle(ctx, pos[0], pos[1], 0.32)
 
-    // inside
-    ctx.fillStyle = '#ff5252'
-    fillCircle(ctx, pos[0], pos[1], 0.24)
+    // Small center to make it visually different from a stone
+    ctx.fillStyle = '#ffffff'
+    fillCircle(ctx, pos[0], pos[1], 0.10)
   }
 
   ctx.restore()
