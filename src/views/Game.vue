@@ -772,11 +772,29 @@ export default {
     },
 
     setPvAsPosition(pv) {
-      this.checkThinking().then(() => {
-        let fullPosition = pv.position.concat(pv.pv)
+      this.checkThinking().then(async () => {
+        const fullPosition =
+          pv.position.concat(pv.pv)
+
+        // Backup Neutral b4 reset
+        const neutralPoints =
+          this.neutralPoints.map(
+            (p) => [...p]
+          )
+
         this.newBoard(this.boardSize)
+
+        // Restore 3 Neutral
+        for (let pos of neutralPoints) {
+          this.setNeutral(pos)
+        }
+
+        // Restore moves
         for (let pos of fullPosition) {
-          if (!this.makeMove(pos)) break
+          const accepted =
+            await this.makeMove(pos)
+
+          if (!accepted) break
         }
       })
     },

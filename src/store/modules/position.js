@@ -10,6 +10,29 @@ function toIndex(p, size) {
   else return p[1] * size + p[0]
 }
 
+function coordToString(pos, size) {
+  return (
+    String.fromCharCode('a'.charCodeAt(0) + pos[0]) +
+    (size - pos[1])
+  )
+}
+
+function stringToCoord(str, size) {
+  const match = str.match(/^([a-z])(\d+)$/)
+  if (!match) return null
+  const x =
+    match[1].charCodeAt(0) -
+    'a'.charCodeAt(0)
+  const y =
+    size - Number(match[2])
+  const pos = [x, y]
+
+  if (toIndex(pos, size) == -1) {
+    return null
+  }
+  return pos
+}
+
 function checkLine(board, pos, delta, size, exactFive = false) {
   let piece = board[toIndex(pos, size)]
   let count = 1,
@@ -52,12 +75,19 @@ const state = {
 
 const getters = {
   posStr: (state) => {
-    let posStrs = []
-    for (let p of state.position) {
-      posStrs.push(String.fromCharCode('a'.charCodeAt(0) + p[0]))
-      posStrs.push(state.size - p[1])
+    const moveStr = state.position
+      .map((p) => coordToString(p, state.size))
+      .join('')
+
+    if (state.neutralPoints.length === 0) {
+      return moveStr
     }
-    return posStrs.join('')
+
+    const neutralStr = state.neutralPoints
+      .map((p) => coordToString(p, state.size))
+      .join(',')
+
+    return `n:${neutralStr}|${moveStr}`
   },
   get: (state) => {
     return (pos) => {
@@ -225,18 +255,96 @@ const mutations = {
 }
 
 const actions = {
-  setPosStr({ commit, dispatch, getters, state }, str) {
+  async setPosStr({commit, dispatch, getters, state }, str) {
     str = str.trim().toLowerCase()
-    let posArray = str.match(/([a-z])(\d+)/g)
-    if (getters.posStr == str) return
+    if (
+      getters.posStr.toLowerCase() == str
+    ) {
+      return
+    }
 
-    commit('new', state.size)
-    if (!posArray) return
-    for (let p of posArray) {
-      let x = p.match(/[a-z]/)[0].charCodeAt(0) - 'a'.charCodeAt(0)
-      let y = state.size - +p.match(/\d+/)[0]
-      dispatch('makeMove', [x, y])
-      if (state.winline.length > 0) break
+    const size = state.size
+    let neutralPart = ''
+    let movePart = str
+
+    // Custom format: n:h8,d4,k10|h7i8j9
+    if (str.startsWith('n:')) {
+      const separator =
+        str.indexOf('|')
+
+      if (separator == -1) {
+        return
+      }
+
+      neutralPart =
+        str.substring(2, separator)
+
+      movePart =
+        str.substring(separator + 1)
+    }
+
+    commit('new', size)
+
+    // neutral
+    if (neutralPart) {
+      const neutralTokens =
+        neutralPart.split(',')
+
+      for (let token of neutralTokens) {
+        if (
+          state.neutralPoints.length >= 3
+        ) {
+          break
+        }
+
+        const pos =
+          stringToCoord(token, size)
+
+        if (!pos) continue
+
+        if (
+          state.board[
+            pos[1] * size + pos[0]
+          ] != EMPTY
+        ) {
+          continue
+        }
+
+        commit('setNeutral', pos)
+      }
+    }
+
+    if (
+      str.startsWith('n:') &&
+      state.neutralPoints.length !== 3
+    ) {
+      return
+    }
+
+    // moves
+    const moveTokens =
+      movePart.match(/([a-z])(\d+)/g)
+
+    if (!moveTokens) {
+      return
+    }
+
+    for (let token of moveTokens) {
+      const pos =
+        stringToCoord(token, size)
+
+      if (!pos) continue
+
+      const accepted =
+        await dispatch('makeMove', pos)
+
+      if (!accepted) {
+        break
+      }
+
+      if (state.winline.length > 0) {
+        break
+      }
     }
   },
   makeMove({ commit, dispatch, getters, rootGetters, state }, pos) {
