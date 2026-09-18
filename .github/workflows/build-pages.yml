@@ -1,4 +1,8 @@
 name: Build Gomoku Calculator
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 on:
   workflow_dispatch:
@@ -9,6 +13,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
+    environment:
+      name: github-pages
+      url: &{{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout
@@ -55,8 +63,14 @@ jobs:
           test -f dist/build/rapfi-single-simd128.wasm
           test -f dist/build/rapfi.data
 
-      - name: Upload website artifact
-        uses: actions/upload-artifact@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: gomoku-calculator-site
           path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
