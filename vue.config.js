@@ -1,4 +1,5 @@
 module.exports = {
+  publicPath: '/gomoku-calculator/',
   configureWebpack: (config) => {
     require('vux-loader').merge(config, {
       options: {},
