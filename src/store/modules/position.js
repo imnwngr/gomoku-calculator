@@ -347,7 +347,7 @@ const actions = {
       }
     }
   },
-  makeMove({ commit, dispatch, getters, rootGetters, state }, pos) {
+  makeMove({ commit, dispatch, getters, rootGetters }, pos) {
     if (!getters.isLegalMove(pos)) return false
     
     let checkOverline =
@@ -362,7 +362,7 @@ const actions = {
 
     return true
   },
-  backward({ commit, dispatch }) {
+  backward({ commit, dispatch, state }) {
     if (state.position.length == 0) return
     commit('undo')
     dispatch('ai/checkForbid', {}, { root: true })
