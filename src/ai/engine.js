@@ -34,7 +34,7 @@ function instantiateSharedWasmMemory() {
 }
 
 // Init engine and setup callback function for receiving engine output
-async function init(callbackFn_, loadFullEngine) {
+async function init(callbackFn_, loadFullEngine = true) {
   callback = callbackFn_
   dataLoaded = false
 

@@ -166,7 +166,7 @@ export default {
         })
       })
     }
-
+    loadEngine(true)
     // 注册 Service Worker
     if ('serviceWorker' in navigator) {
       register(`${process.env.BASE_URL}service-worker.js`, {
@@ -175,7 +175,6 @@ export default {
             'App is being served from cache by a service worker.\n' +
             'For more details, visit https://goo.gl/AFskqB'
           )
-          loadEngine(true)
         },
         updated() {
           _this.$vux.confirm.show_i18n({
@@ -217,10 +216,6 @@ export default {
           }
         });
       });
-    } else {
-      if (this.configIndex == 0)
-        this.setValue({ key: 'configIndex', value: 1 })
-      loadEngine(false)
     }
   },
 }
