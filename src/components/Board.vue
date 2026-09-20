@@ -19,6 +19,16 @@
         min="0" max="100" step="1" :aria-valuetext="numberOpacity === 0 ? 'Ẩn số' : numberOpacity + '%'" />
       <output for="cell-number-opacity">{{ numberOpacity === 0 ? 'Ẩn' : numberOpacity + '%' }}</output>
     </div>
+    <div class="board-numbering" :style="{ maxWidth: boardWidth + 'px' }">
+      <label for="cell-number-mode">Đánh số</label>
+      <select id="cell-number-mode" v-model="numberingMode" aria-describedby="cell-number-example">
+        <option value="continuous">Liên tục</option>
+        <option value="skip-one">Bỏ 1 số mỗi hàng</option>
+      </select>
+      <span id="cell-number-example" class="numbering-example" aria-live="polite">
+        {{ numberingExample }}
+      </span>
+    </div>
   </div>
 </template>
 
@@ -123,8 +133,9 @@ function drawBoard(ctx, style, s, cs) {
   ctx.restore()
 }
 
-function drawCellNumbers(ctx, s, cs, opacity, position, end, neutralPoints) {
+function drawCellNumbers(ctx, s, cs, opacity, position, end, neutralPoints, numberingMode = 'continuous') {
   if (opacity <= 0) return
+  const rowStride = numberingMode === 'skip-one' ? s + 1 : s
   const occupied = new Set(neutralPoints.map((p) => p[1] * s + p[0]))
   for (let i = 0; i < Math.min(end, position.length); i++) {
     occupied.add(position[i][1] * s + position[i][0])
@@ -139,7 +150,9 @@ function drawCellNumbers(ctx, s, cs, opacity, position, end, neutralPoints) {
   for (let y = 0; y < s; y++) {
     for (let x = 0; x < s; x++) {
       const index = y * s + x
-      if (!occupied.has(index)) ctx.fillText(index + 1, x * cs, y * cs, cs * 0.85)
+      // Display labels can skip numbers; board occupancy always uses the real size.
+      const label = y * rowStride + x + 1
+      if (!occupied.has(index)) ctx.fillText(label, x * cs, y * cs, cs * 0.85)
     }
   }
   ctx.restore()
@@ -353,6 +366,7 @@ export default {
     ...mapState('settings', [
       'boardStyle',
       'cellNumberOpacity',
+      'cellNumberMode',
       'indexOrigin',
       'showCoord',
       'showDetail',
@@ -371,6 +385,21 @@ export default {
       thinking: 'thinking',
     }),
     ...mapGetters('position', ['isInBoard']),
+    numberingMode: {
+      get() {
+        return this.cellNumberMode === 'skip-one' ? 'skip-one' : 'continuous'
+      },
+      set(value) {
+        this.$store.commit('settings/setValue', {
+          key: 'cellNumberMode',
+          value: value === 'skip-one' ? 'skip-one' : 'continuous',
+        })
+      },
+    },
+    numberingExample() {
+      const stride = this.numberingMode === 'skip-one' ? this.boardSize + 1 : this.boardSize
+      return `1–${this.boardSize} → ${stride + 1}–${stride + this.boardSize} → …`
+    },
     numberOpacity: {
       get() {
         const value = Number(this.cellNumberOpacity)
@@ -444,7 +473,7 @@ export default {
       const displayedEnd = this.previewPv ? Infinity : this.end
       drawCellNumbers(
         ctx, this.boardSize, cellSize, this.numberOpacity,
-        displayedPosition, displayedEnd, this.neutralPoints
+        displayedPosition, displayedEnd, this.neutralPoints, this.numberingMode
       )
       drawNeutral(ctx, this.boardStyle, cellSize, this.neutralPoints)
       if (this.showLastStep)
@@ -670,6 +699,9 @@ export default {
     indexOrigin() {
       this.drawPieceLayer()
     },
+    cellNumberMode() {
+      this.drawPieceLayer()
+    },
     cellNumberOpacity() {
       this.drawPieceLayer()
     },
@@ -725,7 +757,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 4px auto 10px;
+  margin: 4px auto;
   padding: 8px 0;
   color: #475569;
   font-size: 12px;
@@ -751,6 +783,39 @@ export default {
 }
 .board-appearance output {
   min-width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-numbering {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 auto 10px;
+  color: #475569;
+  font-size: 12px;
+}
+.board-numbering label { white-space: nowrap; }
+.board-numbering select {
+  flex: 1;
+  min-width: 140px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #ced3d8;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  cursor: pointer;
+}
+.board-numbering select:focus-visible {
+  outline: 2px solid #287e52;
+  outline-offset: 2px;
+}
+.numbering-example {
+  flex-basis: 100%;
+  color: #64748b;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

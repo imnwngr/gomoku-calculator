@@ -63,6 +63,7 @@ const state = {
   indexOrigin: 0, // 棋子序号起点
   showCoord: false,
   cellNumberOpacity: 65,
+  cellNumberMode: 'continuous',
   showAnalysis: true,
   showDetail: true,
   showPvEval: 0, // 是否显示实时估值: 0-不显示 1-显示估值 2-显示胜率
@@ -93,6 +94,7 @@ const propertiesToSave = [
   'clickCheck',
   'showCoord',
   'cellNumberOpacity',
+  'cellNumberMode',
   'showAnalysis',
   'showDetail',
   'showPvEval',
