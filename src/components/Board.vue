@@ -8,6 +8,17 @@
       <canvas id="shot" ref="canvasJpg" :width="2048" :height="(2048 * canvasHeight) / canvasWidth"></canvas>
       <canvas id="shot" ref="canvasGif" :width="1024" :height="(1024 * canvasHeight) / canvasWidth"></canvas>
     </div>
+    <div class="board-appearance" :style="{ maxWidth: boardWidth + 'px' }">
+      <span class="board-legend" aria-label="X đỏ, O xanh, ô xám Neutral">
+        <span class="legend-x">X</span>
+        <span class="legend-o">O</span>
+        <span class="legend-neutral" title="Neutral"></span>
+      </span>
+      <label for="cell-number-opacity">Độ đậm số ô</label>
+      <input id="cell-number-opacity" v-model.number="numberOpacity" type="range"
+        min="0" max="100" step="1" :aria-valuetext="numberOpacity === 0 ? 'Ẩn số' : numberOpacity + '%'" />
+      <output for="cell-number-opacity">{{ numberOpacity === 0 ? 'Ẩn' : numberOpacity + '%' }}</output>
+    </div>
   </div>
 </template>
 
@@ -94,117 +105,98 @@ function drawCoord(ctx, style, w, h, s, cs) {
   ctx.restore()
 }
 
+// The existing hit test already maps clicks to cells. Draw their boundaries,
+// keeping the same cell centres used by moves, previews and engine coordinates.
 function drawBoard(ctx, style, s, cs) {
-  let si = s - 1
-
   ctx.save()
-  ctx.strokeStyle = ctx.fillStyle = style.lineColor
-  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
-  ctx.scale(cs, cs)
-
-  // 网格线
-  ctx.lineWidth = style.lineWidth
+  ctx.strokeStyle = style.lineColor
+  ctx.lineWidth = 1
+  ctx.translate(paddingX, paddingTop)
   ctx.beginPath()
-  for (let i = 1; i < si; i++) {
-    ctx.moveTo(i, 0)
-    ctx.lineTo(i, si)
-    ctx.moveTo(0, i)
-    ctx.lineTo(si, i)
+  for (let i = 0; i <= s; i++) {
+    ctx.moveTo(i * cs, 0)
+    ctx.lineTo(i * cs, s * cs)
+    ctx.moveTo(0, i * cs)
+    ctx.lineTo(s * cs, i * cs)
   }
   ctx.stroke()
+  ctx.restore()
+}
 
-  // 画边框
-  ctx.lineWidth = style.lineWidth * 2.5
-  ctx.beginPath()
-  ctx.moveTo(0, 0)
-  ctx.lineTo(si, 0)
-  ctx.lineTo(si, si)
-  ctx.lineTo(0, si)
-  ctx.closePath()
-  ctx.stroke()
-
-  // 画星位
-  let starPad = Math.floor(s / 5)
-  let starCenter = Math.floor(s / 2)
-  let starRadius = style.starRadiusScale
-  fillCircle(ctx, starPad, starPad, starRadius)
-  fillCircle(ctx, si - starPad, starPad, starRadius)
-  fillCircle(ctx, starPad, si - starPad, starRadius)
-  fillCircle(ctx, si - starPad, si - starPad, starRadius)
-  fillCircle(ctx, starCenter, starCenter, starRadius)
-
+function drawCellNumbers(ctx, s, cs, opacity, position, end, neutralPoints) {
+  if (opacity <= 0) return
+  const occupied = new Set(neutralPoints.map((p) => p[1] * s + p[0]))
+  for (let i = 0; i < Math.min(end, position.length); i++) {
+    occupied.add(position[i][1] * s + position[i][0])
+  }
+  ctx.save()
+  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
+  ctx.fillStyle = '#334155'
+  ctx.globalAlpha = opacity / 100
+  ctx.font = Math.min(12, cs * 0.3) + 'px Arial, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      const index = y * s + x
+      if (!occupied.has(index)) ctx.fillText(index + 1, x * cs, y * cs, cs * 0.85)
+    }
+  }
   ctx.restore()
 }
 
 function drawNeutral(ctx, style, cs, neutralPoints) {
   ctx.save()
-
-  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
-  ctx.scale(cs, cs)
-
+  ctx.translate(paddingX, paddingTop)
+  ctx.fillStyle = '#7E8A94'
   for (let pos of neutralPoints) {
-    // Neutral marker
-    ctx.fillStyle = '#e53935'
-    fillCircle(ctx, pos[0], pos[1], 0.32)
-
-    // Small center to make it visually different from a stone
-    ctx.fillStyle = '#ffffff'
-    fillCircle(ctx, pos[0], pos[1], 0.10)
+    ctx.fillRect(pos[0] * cs + 0.5, pos[1] * cs + 0.5, cs - 1, cs - 1)
   }
-
   ctx.restore()
 }
 
 function drawPiece(ctx, style, cs, position, end) {
-  let radius = style.pieceScale / 2
   ctx.save()
   ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
   ctx.scale(cs, cs)
-
-  ctx.lineWidth = style.pieceStrokeWidth
-  ctx.fillStyle = style.pieceBlack
-  ctx.strokeStyle = style.pieceStrokeBlack
-
+  ctx.lineWidth = 0.12
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
   end = Math.min(end, position.length)
-  for (let i = 0; i < end; i += 2) {
-    let pos = position[i]
-    fillCircle(ctx, pos[0], pos[1], radius)
-    if (style.pieceStrokeWidth > 0) ctx.stroke()
+  for (let i = 0; i < end; i++) {
+    const [x, y] = position[i]
+    ctx.strokeStyle = i % 2 === 0 ? '#E9252A' : '#10A64A'
+    ctx.beginPath()
+    if (i % 2 === 0) {
+      ctx.moveTo(x - 0.22, y - 0.22)
+      ctx.lineTo(x + 0.22, y + 0.22)
+      ctx.moveTo(x + 0.22, y - 0.22)
+      ctx.lineTo(x - 0.22, y + 0.22)
+    } else {
+      ctx.arc(x, y, 0.285, 0, Math.PI * 2)
+    }
+    ctx.stroke()
   }
-
-  ctx.fillStyle = style.pieceWhite
-  ctx.strokeStyle = style.pieceStrokeWhite
-  for (let i = 1; i < end; i += 2) {
-    let pos = position[i]
-    fillCircle(ctx, pos[0], pos[1], radius)
-    if (style.pieceStrokeWidth > 0) ctx.stroke()
-  }
-
   ctx.restore()
 }
 
 function drawIndex(ctx, style, cs, position, end, startIndex, highlight) {
   ctx.save()
-  ctx.font = style.indexFontStyle + ' ' + style.indexScale * cs + 'px ' + style.indexFontFamily
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
-
+  ctx.font = '600 ' + Math.min(11, cs * 0.25) + 'px Arial, sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.translate(paddingX, paddingTop)
   end = Math.min(end, position.length)
-  for (let i = startIndex; i < end - 1; i += 1) {
-    let pos = position[i]
-    let text = i - startIndex + 1
-    ctx.fillStyle = i % 2 == 0 ? style.indexColorBlack : style.indexColorWhite
-    ctx.fillText(text, cs * pos[0], cs * pos[1], cs)
+  for (let i = startIndex; i < end; i++) {
+    const [x, y] = position[i]
+    const text = String(i - startIndex + 1)
+    const tx = x * cs + 2
+    const ty = y * cs + 1
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)'
+    ctx.fillRect(tx - 1, ty, ctx.measureText(text).width + 2, cs * 0.28)
+    ctx.fillStyle = highlight && i === end - 1 ? '#9A6700' : '#334155'
+    ctx.fillText(text, tx, ty, cs * 0.8)
   }
-
-  if (end > startIndex) {
-    let pos = position[end - 1]
-    if (highlight) ctx.fillStyle = style.lastStepColor
-    else ctx.fillStyle = end % 2 == 1 ? style.indexColorBlack : style.indexColorWhite
-    ctx.fillText(end - startIndex, cs * pos[0], cs * pos[1], cs)
-  }
-
   ctx.restore()
 }
 
@@ -212,11 +204,10 @@ function drawLastStep(ctx, style, cs, position, end) {
   end = Math.min(end, position.length)
   if (end <= 0) return
   ctx.save()
-  ctx.fillStyle = style.lastStepColor
-  ctx.translate(paddingX + cs / 2, paddingTop + cs / 2)
-  ctx.scale(cs, cs)
-  let pos = position[end - 1]
-  fillCircle(ctx, pos[0], pos[1], style.lastStepScale)
+  ctx.fillStyle = '#FFF0B8'
+  ctx.translate(paddingX, paddingTop)
+  const [x, y] = position[end - 1]
+  ctx.fillRect(x * cs + 0.5, y * cs + 0.5, cs - 1, cs - 1)
   ctx.restore()
 }
 
@@ -361,6 +352,7 @@ export default {
     }),
     ...mapState('settings', [
       'boardStyle',
+      'cellNumberOpacity',
       'indexOrigin',
       'showCoord',
       'showDetail',
@@ -379,6 +371,18 @@ export default {
       thinking: 'thinking',
     }),
     ...mapGetters('position', ['isInBoard']),
+    numberOpacity: {
+      get() {
+        const value = Number(this.cellNumberOpacity)
+        return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 65
+      },
+      set(value) {
+        this.$store.commit('settings/setValue', {
+          key: 'cellNumberOpacity',
+          value: Math.max(0, Math.min(100, Number(value))),
+        })
+      },
+    },
     context() {
       return (idx) => {
         return this.$refs['canvas' + idx].getContext('2d')
@@ -434,35 +438,32 @@ export default {
       ctx.scale(this.renderRatio, this.renderRatio)
       if (!noclear) ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight)
 
+      const displayedPosition = this.previewPv
+        ? this.previewPv.position.concat(this.previewPv.pv)
+        : this.position
+      const displayedEnd = this.previewPv ? Infinity : this.end
+      drawCellNumbers(
+        ctx, this.boardSize, cellSize, this.numberOpacity,
+        displayedPosition, displayedEnd, this.neutralPoints
+      )
+      drawNeutral(ctx, this.boardStyle, cellSize, this.neutralPoints)
+      if (this.showLastStep)
+        drawLastStep(ctx, this.boardStyle, cellSize, displayedPosition, displayedEnd)
+      drawPiece(ctx, this.boardStyle, cellSize, displayedPosition, displayedEnd)
+
       if (this.previewPv) {
-        let previewPosition = this.previewPv.position.concat(this.previewPv.pv)
-        drawPiece(ctx, this.boardStyle, cellSize, previewPosition, Infinity)
         drawIndex(
-          ctx,
-          this.boardStyle,
-          cellSize,
-          previewPosition,
-          Infinity,
-          this.previewPv.position.length,
-          this.showLastStep
+          ctx, this.boardStyle, cellSize, displayedPosition, Infinity,
+          this.previewPv.position.length, this.showLastStep
         )
       } else {
-        drawNeutral(ctx, this.boardStyle, cellSize, this.neutralPoints)
-        drawPiece(ctx, this.boardStyle, cellSize, this.position, this.end)
         if (this.showWinline && this.winline.length > 0 && this.end >= this.position.length)
           drawWinline(ctx, this.boardStyle, cellSize, this.winline)
         if (this.showIndex)
           drawIndex(
-            ctx,
-            this.boardStyle,
-            cellSize,
-            this.position,
-            this.end,
-            this.indexOrigin,
-            this.showLastStep
+            ctx, this.boardStyle, cellSize, this.position, this.end,
+            this.indexOrigin, this.showLastStep
           )
-        else if (this.showLastStep)
-          drawLastStep(ctx, this.boardStyle, cellSize, this.position, this.end)
       }
 
       ctx.restore()
@@ -669,6 +670,9 @@ export default {
     indexOrigin() {
       this.drawPieceLayer()
     },
+    cellNumberOpacity() {
+      this.drawPieceLayer()
+    },
     showCoord() {
       this.drawBoardLayer()
     },
@@ -715,6 +719,40 @@ export default {
 <style lang="less" scoped>
 .board {
   width: 100%;
+}
+
+.board-appearance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px auto 10px;
+  padding: 8px 0;
+  color: #475569;
+  font-size: 12px;
+}
+
+.board-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 6px;
+  font: 700 18px Arial, sans-serif;
+}
+.legend-x { color: #e9252a; }
+.legend-o { color: #10a64a; }
+.legend-neutral { width: 14px; height: 14px; background: #7e8a94; }
+.board-appearance label { white-space: nowrap; }
+.board-appearance input {
+  flex: 1;
+  min-width: 36px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: #287e52;
+}
+.board-appearance output {
+  min-width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .board-stage {

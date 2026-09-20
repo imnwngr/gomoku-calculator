@@ -9,8 +9,8 @@ export const CONFIGS = ['config.toml', 'classical220723.toml', 'classical210901.
 const state = {
   language: null,
   boardStyle: {
-    boardColor: '#F4D03F',
-    lineColor: '#000000',
+    boardColor: '#FFFFFF',
+    lineColor: '#CED3D8',
     lineWidth: 0.03,
     coordColor: '#000000',
     coordFontStyle: '',
@@ -61,11 +61,12 @@ const state = {
   pondering: false, // 后台思考
   clickCheck: 0, // 点击方式: 0-直接落子 1-二次确认 2-滑动落子
   indexOrigin: 0, // 棋子序号起点
-  showCoord: true,
+  showCoord: false,
+  cellNumberOpacity: 65,
   showAnalysis: true,
   showDetail: true,
   showPvEval: 0, // 是否显示实时估值: 0-不显示 1-显示估值 2-显示胜率
-  showIndex: true,
+  showIndex: false,
   showLastStep: true,
   showWinline: true,
   showForbid: true,
@@ -91,6 +92,7 @@ const propertiesToSave = [
   'pondering',
   'clickCheck',
   'showCoord',
+  'cellNumberOpacity',
   'showAnalysis',
   'showDetail',
   'showPvEval',
@@ -172,9 +174,21 @@ const actions = {
     if (!json) return
 
     let stateToRead = JSON.parse(json)
-    for (let p of propertiesToSave) commit('setValueNoSave', { key: p, value: stateToRead[p] })
-    for (let p of boardPropertiesToSave)
-      commit('setBoardStyleNoSave', { key: p, value: stateToRead[p] })
+    for (let p of propertiesToSave) {
+      if (Object.prototype.hasOwnProperty.call(stateToRead, p))
+        commit('setValueNoSave', { key: p, value: stateToRead[p] })
+    }
+    for (let p of boardPropertiesToSave) {
+      if (Object.prototype.hasOwnProperty.call(stateToRead, p))
+        commit('setBoardStyleNoSave', { key: p, value: stateToRead[p] })
+    }
+    // Apply the cell-board defaults once for configurations saved before this UI.
+    if (!Object.prototype.hasOwnProperty.call(stateToRead, 'cellNumberOpacity')) {
+      commit('setValueNoSave', { key: 'showCoord', value: false })
+      commit('setValueNoSave', { key: 'showIndex', value: false })
+      commit('setBoardStyleNoSave', { key: 'boardColor', value: '#FFFFFF' })
+      saveCookies()
+    }
   },
   clearCookies() {
     localStorage.removeItem('GMKC_CFG_' + version)
